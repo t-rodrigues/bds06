@@ -1,0 +1,16 @@
+app:
+  jwt:
+    secret-key: ${JWT_SECRET_KEY:jwt-secret-key}
+    duration: ${JWT_DURATION:86400}
+
+security:
+  oauth2:
+    client:
+      client-id: ${CLIENT_ID:myclientid}
+      client-secret: ${CLIENT_SECRET:myclientsecret}
+
+spring:
+  profiles:
+    active: ${APP_PROFILE:test}
+  jpa:
+    open-in-view: false

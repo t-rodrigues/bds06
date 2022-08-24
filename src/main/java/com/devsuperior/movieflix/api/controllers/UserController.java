@@ -5,7 +5,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.devsuperior.movieflix.domain.dtos.UserDTO;
+import com.devsuperior.movieflix.domain.dtos.View;
 import com.devsuperior.movieflix.infra.security.AuthService;
+import com.fasterxml.jackson.annotation.JsonView;
 
 @RestController
 @RequestMapping("/users")
@@ -17,6 +19,7 @@ public class UserController {
         this.authService = authService;
     }
 
+    @JsonView(View.Sumary.class)
     @GetMapping("/profile")
     public UserDTO profile() {
         var user = authService.getAuthenticated();
