@@ -14,7 +14,7 @@ public class ResouceServerConfig extends ResourceServerConfigurerAdapter {
 
     private static final String[] PUBLIC = { "/oauth/token" };
     private static final String[] VISITOR_OR_MEMBER = { "/movies/**", "/genres/**" };
-    private static final String[] MEMBER = { "/movies/**", "/genres/**" };
+    private static final String[] MEMBER = { "/movies/**", "/genres/**", "/reviews/**" };
 
     private final JwtTokenStore jwtTokenStore;
 
@@ -33,7 +33,7 @@ public class ResouceServerConfig extends ResourceServerConfigurerAdapter {
                 .antMatchers(PUBLIC).permitAll()
                 .antMatchers(HttpMethod.GET, VISITOR_OR_MEMBER).hasAnyRole("VISITOR", "MEMBER")
                 .antMatchers(MEMBER).hasRole("MEMBER")
-                .anyRequest().authenticated());
+                .anyRequest().hasRole("ADMIN"));
     }
 
 }

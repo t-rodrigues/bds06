@@ -23,119 +23,111 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Transactional
 public class ReviewResourceIT {
 
-	@Autowired
-	private MockMvc mockMvc;
+    @Autowired
+    private MockMvc mockMvc;
 
-	@Autowired
-	private TokenUtil tokenUtil;
+    @Autowired
+    private TokenUtil tokenUtil;
 
-	@Autowired
-	private ObjectMapper objectMapper;
+    @Autowired
+    private ObjectMapper objectMapper;
 
-	private String visitorUsername;
-	private String visitorPassword;
-	private String memberUsername;
-	private String memberPassword;
+    private String visitorUsername;
+    private String visitorPassword;
+    private String memberUsername;
+    private String memberPassword;
 
-	@BeforeEach
-	void setUp() throws Exception {
+    @BeforeEach
+    void setUp() throws Exception {
+        visitorUsername = "bob@gmail.com";
+        visitorPassword = "123456";
+        memberUsername = "ana@gmail.com";
+        memberPassword = "123456";
+    }
 
-		visitorUsername = "bob@gmail.com";
-		visitorPassword = "123456";
-		memberUsername = "ana@gmail.com";
-		memberPassword = "123456";
-	}
+    @Test
+    public void insertShouldReturnUnauthorizedWhenNotValidToken() throws Exception {
+        ReviewDTO reviewDTO = new ReviewDTO();
+        reviewDTO.setText("Gostei do filme!");
+        reviewDTO.setMovieId(1L);
 
-	@Test
-	public void insertShouldReturnUnauthorizedWhenNotValidToken() throws Exception {
+        String jsonBody = objectMapper.writeValueAsString(reviewDTO);
 
-		ReviewDTO reviewDTO = new ReviewDTO();
-		reviewDTO.setText("Gostei do filme!");
-		reviewDTO.setMovieId(1L);
+        ResultActions result = mockMvc.perform(post("/reviews")
+                .content(jsonBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON));
 
-		String jsonBody = objectMapper.writeValueAsString(reviewDTO);
+        result.andExpect(status().isUnauthorized());
+    }
 
-		ResultActions result =
-				mockMvc.perform(post("/reviews")
-						.content(jsonBody)
-						.contentType(MediaType.APPLICATION_JSON)
-						.accept(MediaType.APPLICATION_JSON));
+    @Test
+    public void insertShouldReturnForbiddenWhenVisitorAuthenticated() throws Exception {
+        String accessToken = tokenUtil.obtainAccessToken(mockMvc, visitorUsername, visitorPassword);
 
-		result.andExpect(status().isUnauthorized());
-	}
+        ReviewDTO reviewDTO = new ReviewDTO();
+        reviewDTO.setText("Gostei do filme!");
+        reviewDTO.setMovieId(1L);
 
-	@Test
-	public void insertShouldReturnForbiddenWhenVisitorAuthenticated() throws Exception {
+        String jsonBody = objectMapper.writeValueAsString(reviewDTO);
 
-		String accessToken = tokenUtil.obtainAccessToken(mockMvc, visitorUsername, visitorPassword);
+        ResultActions result = mockMvc.perform(post("/reviews")
+                .header("Authorization", "Bearer " + accessToken)
+                .content(jsonBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON));
 
-		ReviewDTO reviewDTO = new ReviewDTO();
-		reviewDTO.setText("Gostei do filme!");
-		reviewDTO.setMovieId(1L);
+        result.andExpect(status().isForbidden());
+    }
 
-		String jsonBody = objectMapper.writeValueAsString(reviewDTO);
+    @Test
+    public void insertShouldInsertReviewWhenMemberAuthenticatedAndValidData() throws Exception {
+        String accessToken = tokenUtil.obtainAccessToken(mockMvc, memberUsername, memberPassword);
 
-		ResultActions result =
-				mockMvc.perform(post("/reviews")
-						.header("Authorization", "Bearer " + accessToken)
-						.content(jsonBody)
-						.contentType(MediaType.APPLICATION_JSON)
-						.accept(MediaType.APPLICATION_JSON));
+        String reviewText = "Gostei do filme!";
+        long movieId = 1L;
 
-		result.andExpect(status().isForbidden());
-	}
+        ReviewDTO reviewDTO = new ReviewDTO();
+        reviewDTO.setText(reviewText);
+        reviewDTO.setMovieId(movieId);
 
-	@Test
-	public void insertShouldInsertReviewWhenMemberAuthenticatedAndValidData() throws Exception {
+        String jsonBody = objectMapper.writeValueAsString(reviewDTO);
 
-		String accessToken = tokenUtil.obtainAccessToken(mockMvc, memberUsername, memberPassword);
+        ResultActions result = mockMvc.perform(post("/reviews")
+                .header("Authorization", "Bearer " + accessToken)
+                .content(jsonBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON));
 
-		String reviewText = "Gostei do filme!";
-		long movieId = 1L;
+        result.andExpect(status().isCreated());
 
-		ReviewDTO reviewDTO = new ReviewDTO();
-		reviewDTO.setText(reviewText);
-		reviewDTO.setMovieId(movieId);
+        result.andExpect(jsonPath("$.id").isNotEmpty());
+        result.andExpect(jsonPath("$.text").value(reviewText));
+        result.andExpect(jsonPath("$.movieId").value(movieId));
 
-		String jsonBody = objectMapper.writeValueAsString(reviewDTO);
+        result.andExpect(jsonPath("$.user").isNotEmpty());
+        result.andExpect(jsonPath("$.user.id").isNotEmpty());
+        result.andExpect(jsonPath("$.user.name").isNotEmpty());
+        result.andExpect(jsonPath("$.user.email").value(memberUsername));
+    }
 
-		ResultActions result =
-				mockMvc.perform(post("/reviews")
-						.header("Authorization", "Bearer " + accessToken)
-						.content(jsonBody)
-						.contentType(MediaType.APPLICATION_JSON)
-						.accept(MediaType.APPLICATION_JSON));
+    @Test
+    public void insertShouldReturnUnproccessableEntityWhenMemberAuthenticatedAndInvalidData() throws Exception {
+        String accessToken = tokenUtil.obtainAccessToken(mockMvc, memberUsername, memberPassword);
 
-		result.andExpect(status().isCreated());
+        ReviewDTO reviewDTO = new ReviewDTO();
+        reviewDTO.setText("        ");
+        reviewDTO.setMovieId(1L);
 
-		result.andExpect(jsonPath("$.id").isNotEmpty());
-		result.andExpect(jsonPath("$.text").value(reviewText));
-		result.andExpect(jsonPath("$.movieId").value(movieId));
+        String jsonBody = objectMapper.writeValueAsString(reviewDTO);
 
-		result.andExpect(jsonPath("$.user").isNotEmpty());
-		result.andExpect(jsonPath("$.user.id").isNotEmpty());
-		result.andExpect(jsonPath("$.user.name").isNotEmpty());
-		result.andExpect(jsonPath("$.user.email").value(memberUsername));
-	}
+        ResultActions result = mockMvc.perform(post("/reviews")
+                .header("Authorization", "Bearer " + accessToken)
+                .content(jsonBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON));
 
-	@Test
-	public void insertShouldReturnUnproccessableEntityWhenMemberAuthenticatedAndInvalidData() throws Exception {
+        result.andExpect(status().isUnprocessableEntity());
+    }
 
-		String accessToken = tokenUtil.obtainAccessToken(mockMvc, memberUsername, memberPassword);
-
-		ReviewDTO reviewDTO = new ReviewDTO();
-		reviewDTO.setText("        ");
-		reviewDTO.setMovieId(1L);
-
-		String jsonBody = objectMapper.writeValueAsString(reviewDTO);
-
-		ResultActions result =
-				mockMvc.perform(post("/reviews")
-						.header("Authorization", "Bearer " + accessToken)
-						.content(jsonBody)
-						.contentType(MediaType.APPLICATION_JSON)
-						.accept(MediaType.APPLICATION_JSON));
-
-		result.andExpect(status().isUnprocessableEntity());
-	}
 }
